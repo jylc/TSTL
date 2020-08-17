@@ -6,6 +6,11 @@ namespace TSTL {
 
 #include <functional>
 #include <memory>
+#include <cassert>
+#ifndef __RESTRICT
+#define __RESTRICT
+#endif // !__RESTRICT
+
 #ifndef __THROW_BAD_ALLOC
 	/*
 	* 定义了__STL_NO_BAD_ALLOC或者没有定义__STL_USE_EXCEPTIONS（使用异常）时，输出错误并退出
@@ -20,6 +25,17 @@ namespace TSTL {
 #define __THROW_BAD_ALLOC throw std::bad_alloc()
 #endif // define
 #endif // !__THROW_BAD_ALLOC
+
+
+#ifdef __STL_THREADS
+#else
+#define __NODE_ALLOCATOR_LOCK
+#define __NODE_ALLOCATOR_UNLOCK
+#define __NODE_ALLOCATOR_THREADS false
+
+#endif // __STL_THREADS
+
+
 
 	/*
 		第一级配置器(当配置区块超过128bytes时)
@@ -100,8 +116,10 @@ namespace TSTL {
 		}
 	}
 
-	//转调用，调用传递给配置器；多一层包装，使_Alloc具有标准接口
-	template<typename _Tp, typename _Alloc>
+	typedef __malloc_alloc_template malloc_alloc
+
+		//转调用，调用传递给配置器；多一层包装，使_Alloc具有标准接口
+		template<typename _Tp, typename _Alloc>
 	class simple_alloc
 	{
 	public:
@@ -130,11 +148,147 @@ namespace TSTL {
 	class debug_alloc
 	{
 	private:
-		enum
+		enum { _S_extra = 8 };
+	public:
+		static void* allocate(size_t n)
 		{
-			_S_extra = 8;
-		};
+			//创建n+(int)_S_extra个字节内存空间
+			char* result = (char*)_Alloc::allocate(n + (int)_S_extra);
+			//前八个字节用来存储n
+			*(size_t*)result = n;
+			//返回n个字节单位内存空间
+			return result + (int)_S_extra;
+		}
+
+		static void deallocate(void* p, size_t n)
+		{
+			//__real_p为之前分配的完整的内存空间
+			char* __real_p = (char*)p - (int)_S_extra;
+			assert(*(size_t*)__real_p == n);
+			_Alloc::deallocate(__real_p, n + (int)_S_extra);
+		}
+
+		static void* reallocate(void* p, size_t old_size, size_t new_size)
+		{
+			char* __read_p = (char*)p - (int)_S_extra;
+			assert(*(size_t*)__read_p == n);
+			char* result = (char*)_Alloc::reallocate(p, new_size + (int)_S_extra);
+			*(size_t*)result = new_size;
+			return result + (int)_S_extra;
+		}
 	};
+
+
+#ifdef __USE_MALLOC_
+	typedef malloc_alloc alloc;
+	typedef malloc_alloc single_client_alloc; ss
+#else
+
+	//二级配置器，GCC默认使用二级配置器，以避免太多小额区块造成内存碎片
+	template<bool threads>
+	class __default_alloc_template
+	{
+	private:
+		enum { _ALIGN = 8 };//小型区块的上调边界
+		enum { _MAX_BYTES = 128 };	//小区区块的上界（以128字节为分界点，大于128使用第一级配置器，小于使用第二级）
+		enum { _NFREELISTS = 16 };	//_MAX_BYTES/_ALIGN free-list个数
+
+		//将任何小额区块的内存需求量上调至 8 的倍数
+		static size_t _S_round_up(size_t bytes)
+		{
+			return (bytes + (size_t)_ALIGN - 1) & ~((size_t)_ALIGN - 1);
+		}
+
+		union _Obj {
+			union _Obj* _M_free_link_list;
+			char _M_client_data[i];
+		};
+
+		//16个空闲链表
+		static _Obj* __STL_VOLATILE _S_free_list[_NFREELISTS];
+		//根据所给的大小，找到相应空闲链表的下标（从0开始算）
+		static size_t _S_freelist_index(size_t bytes)
+		{
+			return (bytes + (size_t)_ALIGN - 1) / (size_t)_ALIGN - 1;
+		}
+
+		static void* _S_refill(size_t n);
+		static char* _S_chunk_alloc(size_t size, int& nobjs);
+
+		static char* _S_start_state;
+		static char* _S_end_state;
+		static size_t _S_heap_size;
+
+
+		class _Lock;
+		friend class _Lock;
+		class _Lock
+		{
+		public:
+			_Lock() { __NODE_ALLOCATOR_LOCK; }
+			~log() { __NODE_ALLOCATOR_UNLOCK; }
+		};
+
+	public:
+		//n必须大于0
+		static void* allocate(size_t n)
+		{
+			void* result;
+			assert(n != 0);
+			//n大于128使用第一级配置器
+			if (n > (size_t)_MAX_BYTES)
+				result = malloc_alloc::allocate(n);
+			else {
+				_Obj* __STL_VOLATILE* my_free_list = _S_free_list + _S_freelist_index(n);
+#ifndef _NOTHREADS
+				_Lock __lock_instance;
+#endif // !_NOTHREADS
+				_Obj* __RESTRICT __result = *my_free_list;
+				if (0 == __result)
+				{
+					result = _S_refill(_S_round_up(n));
+				}
+				else
+				{
+					*my_free_list = __result->_M_free_link_list;
+					result = __result;
+				}
+			}
+			return result;
+		}
+
+
+		static void deallocate(void* p, size_t n)
+		{
+			if (n > (size_t)_MAX_BYTES)
+				malloc_alloc::deallocate(p, n);
+			else
+			{
+				_Obj* __STL_VOLATILE* my_free_list = _S_free_list + _S_freelist_index(n);
+				_Obj* q = static_cast<_Obj*>(p);
+#ifndef _NOTHREADS
+				_Lock _lock_instance;
+#endif // !_NOTHREADS
+				q->_M_free_link_list = my_free_list;
+				*my_free_list = q;
+			}
+		}
+
+		static void* reallocate(void* p, size_t old_size, size_t new_size);
+	};
+
+
+	typedef __default_alloc_template<__NODE_ALLOCATOR_THREADS> alloc;//第二级配置器
+	typedef __default_alloc_template<false> single_client_alloc;
+
+	template<bool __threads>
+	inline bool operator==(const __default_alloc_template<__threads>&, const __default_alloc_template<__threads>&)
+	{
+		return true;
+	}
+
+#endif // __USE_MALLOC_
+
 
 }
 
