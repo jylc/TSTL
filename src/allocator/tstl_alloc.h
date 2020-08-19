@@ -2,7 +2,6 @@
 #ifndef _TSTL_ALLOC_H_
 #define _TSTL_ALLOC_H_
 
-namespace TSTL {
 
 #include <functional>
 #include <memory>
@@ -12,9 +11,9 @@ namespace TSTL {
 #endif // !__RESTRICT
 
 #ifndef __THROW_BAD_ALLOC
-	/*
-	* 定义了__STL_NO_BAD_ALLOC或者没有定义__STL_USE_EXCEPTIONS（使用异常）时，输出错误并退出
-	*/
+/*
+* 定义了__STL_NO_BAD_ALLOC或者没有定义__STL_USE_EXCEPTIONS（使用异常）时，输出错误并退出
+*/
 
 #if defined(__STL_NO_BAD_ALLOC)||!defined(__STL_USE_EXCEPTIONS)	
 #include <iostream>
@@ -34,9 +33,7 @@ namespace TSTL {
 #define __NODE_ALLOCATOR_THREADS false
 
 #endif // __STL_THREADS
-
-
-
+namespace TSTL {
 	/*
 		第一级配置器(当配置区块超过128bytes时)
 	*/
@@ -48,9 +45,10 @@ namespace TSTL {
 		static void* _S_oom_realloc(void*, size_t);
 
 		//利用function创建处理函数
-		using __malloc_alloc_oom_handler = std::function<static void()>;
+		using __malloc_alloc_oom_handler = std::function<void()>;
 		using __my_alloc_handler = std::function<void()>;
-		__malloc_alloc_oom_handler handler_;
+		static __malloc_alloc_oom_handler handler_;
+		std::function<void()> test_func;
 
 	public:
 		//第一级直接调用malloc分配内存
@@ -75,15 +73,13 @@ namespace TSTL {
 		}
 
 
-		static __malloc_alloc_oom_handler __set_malloc_handler(std::function<void()>& handler)
+		static __malloc_alloc_oom_handler __set_malloc_handler(std::function<void()> handler)
 		{
-			__malloc_alloc_oom_hander  old_handler = handler_;
-			std::move(handler_, static_cast<__malloc_alloc_oom_handler> (handler));
+			auto  old_handler = handler_;
+			handler_ = handler;
 			return old_handler;
 		}
 	};
-
-	__malloc_alloc_template::handler_ = 0;
 
 	void* __malloc_alloc_template::_S_oom_malloc(size_t n)
 	{
@@ -116,10 +112,10 @@ namespace TSTL {
 		}
 	}
 
-	typedef __malloc_alloc_template malloc_alloc
+	typedef __malloc_alloc_template malloc_alloc;
 
-		//转调用，调用传递给配置器；多一层包装，使_Alloc具有标准接口
-		template<typename _Tp, typename _Alloc>
+	//转调用，调用传递给配置器；多一层包装，使_Alloc具有标准接口
+	template<typename _Tp, typename _Alloc>
 	class simple_alloc
 	{
 	public:
@@ -286,6 +282,121 @@ namespace TSTL {
 	{
 		return true;
 	}
+
+
+	//从内存池中取空间
+	template<bool __threads>
+	char* __default_alloc_template<__threads>::_S_chunk_alloc(size_t size, int& __nobjs)
+	{
+		char* result;
+		size_t total_size = size * __nobjs;
+		size_t idle_size = _S_end_state - _S_start_state;//内存池中的空闲内存
+		if (idle_size >= total_size)
+		{
+			//内存空间足够
+			result = _S_start_state;
+			_S_start_state += total_size;
+			return result;
+		}
+		else if (idle_size >= size)
+		{
+			//内存空间不够但是还能分配几个
+			__nobjs = (int)(idle_size / size);
+			total_size = __nobjs * size;
+			result = _S_start_state;
+			_S_start_state += total_size;
+			return result;
+		}
+		else
+		{
+			//内存空间完全不够
+			//申请2倍大小内存空间+附加量
+			size_t __size_to_get = 2 * total_size + _S_round_up(_S_heap_size >> 2);
+			if (idle_size > 0)
+			{//将内存池剩余的空间分配给合适的空闲链表
+				_Obj* __STL_VOLATILE* my_free_list = _S_free_list + _S_freelist_index(__size_to_get);
+				((_Obj*)_S_start_state)->_M_free_link_list = *my_free_list;
+				*my_free_list = (_Obj*)_S_start_state;
+			}
+			_S_start_state = (char*)malloc(__size_to_get);
+			if (0 == _S_start_state)
+			{
+				size_t __i;
+				_Obj* __p;
+				_Obj* __STL_VOLATILE* my_free_list;
+				for (__i = size; __i <= _MAX_BYTES; i += _ALIGN)
+				{
+					my_free_list = _S_free_list + _S_freelist_index(__i);
+					p = *my_free_list;
+					if (0 != p)
+					{
+						*my_free_list = p->_M_free_link_list;
+						_S_start_state = (char*)p;
+						_S_end_state = _S_start_state + __i;
+						return (_S_chunk_alloc(size, __nobjs));
+					}
+				}
+				_S_end_state = 0;
+				_S_start_state = (char*)malloc_alloc::allocate(__size_to_get);
+			}
+			_S_heap_size += __size_to_get;
+			_S_end_state = _S_start_state + __size_to_get;
+			return (_S_chunk_alloc(size, __nobjs));
+		}
+	}
+
+	template<bool __threads>
+	void* __default_alloc_template<__threads>::_S_refill(size_t n)
+	{
+		int nobjs = 20;//默认分配20块
+		char* chunk = _S_chunk_alloc(n, nobjs);
+		_Obj* __STL_VOLATILE* my_free_list;
+		_Obj* __result;
+		_Obj* __next_obj;
+		_Obj* __current_obj;
+		if (1 == nobjs) return chunk;
+		my_free_list = _S_free_list + _S_freelist_index(n);
+		__result = (_Obj*)chunk;
+		*my_free_list = __next_obj = (_Obj*)(chunk + n);
+		for (size_t i = 1;; i++)
+		{
+			__current_obj = __next_obj;
+			//__next_obj现在是连续的一段空间，要将其转化为指针相连的形式
+			__next_obj = (_Obj*)((char*)__next_obj + n);
+			if (nobjs - 1 == i)
+				__current_obj->_M_free_link_list = 0;
+			else
+			{
+				__current_obj->_M_free_link_list = __next_obj;
+			}
+		}
+		return __result;
+	}
+
+	template<bool __threads>
+	void* __default_alloc_template<__threads>::reallocate(void* p, size_t old_size, size_t new_size)
+	{
+		void* __result;
+		size_t __copy_size;
+		if (old_size > (size_t)_MAX_BYTES && new_size > (size_t)_MAX_BYTES)
+			return realloc(p, new_size);
+		if (_S_round_up(old_size) == _S_round_up(new_size))return p;
+		__result = allocate(new_size);
+		__copy_size = (new_size > old_size) ? old_size : new_size;
+		memcpy(__result, p, __copy_size);
+		deallocate(p, old_size);
+		return __result;
+	}
+
+	template<bool __threads>
+	char *__default_alloc_template<__threads>::_S_start_state = 0;
+	
+	template<bool __threads>
+	char* __default_alloc_template<__threads>::_S_end_state = 0;
+
+	template<bool __threads>
+	size_t __default_alloc_template<__threads>::_S_heap_size = 0;
+
 
 #endif // __USE_MALLOC_
 

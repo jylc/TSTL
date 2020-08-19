@@ -6,6 +6,7 @@
 #define _TSTL_H_
 #include <iostream>
 #include "defalloc.h"
+#include "tstl_alloc.h"
 
 // TODO: 在此处引用程序需要的其他标头。
 
