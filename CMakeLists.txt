@@ -36,7 +36,7 @@ set(INSTALL_PATH_LIB lib)
 set(INSTALL_PATH_INCLUDE include)
 
 # src下所有源码目录
-set(SRC_LIST "base" "test" "allocator" "algorithm")
+set(SRC_LIST "base" "test" "allocator" "algorithm" "iterator")
 
 # 遍历所有源码目录
 foreach(SUB_DIR ${SRC_LIST})
