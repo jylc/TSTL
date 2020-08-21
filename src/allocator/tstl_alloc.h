@@ -389,14 +389,19 @@ namespace TSTL {
 	}
 
 	template<bool __threads>
-	char *__default_alloc_template<__threads>::_S_start_state = 0;
-	
+	char* __default_alloc_template<__threads>::_S_start_state = 0;
+
 	template<bool __threads>
 	char* __default_alloc_template<__threads>::_S_end_state = 0;
 
 	template<bool __threads>
 	size_t __default_alloc_template<__threads>::_S_heap_size = 0;
 
+	/*template<bool __threads>
+	typename __default_alloc_template<__threads>::_Obj* __STL_VOLATILE
+		__default_alloc_template<__threads>::_S_free_list[
+			__default_alloc_template<__threads, __inst>::_NFREELISTS]
+		= { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };*/
 
 #endif // __USE_MALLOC_
 

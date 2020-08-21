@@ -251,8 +251,148 @@ namespace TSTL
 		return (_Tp*)(0);
 	}
 
+	//distance_type
+	template<typename _T,typename _Distance>
+	inline _Distance* distance_type(const input_iterator<_T,_Distance>&)
+	{
+		return (_Distance*)(0);
+	}
+
+	template<typename _T, typename _Distance>
+	inline _Distance* distance_type(const output_iterator<_T, _Distance>&)
+	{
+		return (_Distance*)(0);
+	}
+
+	template<typename _T, typename _Distance>
+	inline _Distance* distance_type(const forward_iterator<_T, _Distance>&)
+	{
+		return (_Distance*)(0);
+	}
+
+	template<typename _T, typename _Distance>
+	inline _Distance* distance_type(const bidirectional_iterator<_T, _Distance>&)
+	{
+		return (_Distance*)(0);
+	}
+
+	template<typename _T, typename _Distance>
+	inline _Distance* distance_type(const random_access_iterator<_T, _Distance>&)
+	{
+		return (_Distance*)(0);
+	}
+	template<typename _Tp>
+	inline ptrdiff_t* distance_type(const _Tp*)
+	{
+		return (ptrdiff_t*)(0);
+	}
 
 
+	//distance
+	////////////////////////////////////////////////////////////////////////////////  
+	// template <class InputIterator, class Distance>  
+	// inline void distance(InputIterator first, InputIterator last, Distance& n)  
+	////////////////////////////////////////////////////////////////////////////////  
+	//                                distance  
+	//                                   |  
+	//                                   |---------------- 判断迭代器类型  
+	//                 Input Iterator    ↓   Random Access Iterator  
+	//               -------------------------------------------  
+	//               |                                         |  
+	//               |                                         |  
+	//               ↓                                         |  
+	// __distance(..., input_iterator_tag)                     |  
+	// while (first != last) { ++first; ++n; }                 |  
+	//                                                         ↓  
+	//                                __distance(..., random_access_iterator_tag)  
+	//                                n += last - first;  
+	////////////////////////////////////////////////////////////////////////////////  
+	template<class InputIterator,typename Distance>
+	inline void __distance(InputIterator __first, InputIterator __last, Distance& n,input_iterator_tag)
+	{
+		while (__first!=__last)
+		{
+			__first++;
+			n++;
+		}
+	}
+
+	template<class RandomAccessIterator,typename Distance>
+	inline void __distance(RandomAccessIterator __first, RandomAccessIterator __last, Distance& n, random_access_iterator_tag)
+	{
+		n += __last - __first;
+	}
+	template<typename InputIterator,typename Distance>
+	inline void distance(InputIterator __first, InputIterator __last, Distance& n)
+	{
+		__distance(__first, __last, n,iterator_category(__first));
+	}
+
+
+	////////////////////////////////////////////////////////////////////////////////  
+	// advance()实现部分  
+	////////////////////////////////////////////////////////////////////////////////  
+	//                                advance  
+	//                                   |  
+	//                                   |---------------- 判断迭代器类型  
+	//     Input Iterator                ↓  
+	//   ---------------------------------------------------------------------  
+	//   |             Random Access Iterator |      Bidirectional Iterator  |  
+	//   |                                    |                              |  
+	//   ↓                                    |                              |  
+	// __advance(..., input_iterator_tag)     |                              |  
+	// while (n--) ++i;                       |                              |  
+	//                                        |                              |  
+	//                                        ↓                              |  
+	//               __advance(..., random_access_iterator_tag)              |  
+	//               i += n;                                                 |  
+	//                                                                       |  
+	//                                                                       ↓  
+	//                                   __advance(..., bidirectional_iterator_tag)  
+	//                                   if (n >= 0)  
+	//                                      while (n--) ++i;  
+	//                                   else  
+	//                                      while (n++) --i;  
+	////////////////////////////////////////////////////////////////////////////////  
+	template<typename InputIterator,typename Distance>
+	inline void __advance(InputIterator& i, Distance n, input_iterator_tag)
+	{
+		while (n--)
+		{
+			i++;
+		}
+	}
+
+	template<typename BidirectionalIterator,typename Distance>
+	inline void __advance(BidirectionalIterator& i, Distance n, bidirectional_iterator_tag)
+	{
+		if (n >= 0)
+		{
+			while (n--)
+			{
+				i++;
+			}
+		}
+		else
+		{
+			while (n++)
+			{
+				i--;
+			}
+		}
+	}
+
+	template<typename RandomAccessIterator,typename Distance>
+	inline void __advance(RandomAccessIterator& i, Distance n, random_access_iterator_tag)
+	{
+		i += n;
+	}
+	
+	template<typename InputIterator,typename Distance>
+	inline void advance(InputIterator& i, Distance n)
+	{
+		__advance(i, n, iterator_category(i));
+	}
 #endif // __STL_CLASS_PARTIAL_SPECIALIZATION
 
 
