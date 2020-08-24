@@ -211,14 +211,14 @@ namespace TSTL
 	//特化版(const char*,const char*)
 	inline char* copy(const char* first, const char* last, char* result)
 	{
-		memcpy(result, first, size_t(last - first));
+		tstl_memmove(result, first, size_t(last - first));
 		return result + (last - first);
 	}
 
 	//特化版(const wchar_t*,const wchar_t*)
 	inline wchar_t* copy(const wchar_t* first, const wchar_t* last, wchar_t* result)
 	{
-		memcpy(result, first, size_t(last - first));
+		tstl_memmove(result, first, size_t(last - first));
 		return result + (last - first);
 	}
 
@@ -288,7 +288,7 @@ namespace TSTL
 	template<typename T>
 	inline T* __copy_t(const T* first, const T* last, T* result, true_type)
 	{
-		memmove(result, first, size_t(last - first));
+		tstl_memmove(result, first, size_t(last - first));
 		return result + (last - first);
 	}
 
@@ -297,6 +297,67 @@ namespace TSTL
 	inline T* __copy_t(const T* first, const T* last, T* result, false_type)
 	{
 		return __copy_d(first, last, result, (ptrdiff_t*)0);
+	}
+
+
+	//copy_backward:从最后一个元素复制到第一个元素
+	//第一层
+	template<typename InputIterator,typename OutputIterator>
+	OutputIterator copy_backward(InputIterator first, InputIterator last, OutputIterator result)
+	{
+		return __copy_backward_dispatch<InputIterator, OutputIterator>()(first, last, result);
+	}
+
+	//第二层
+	template<typename InputIterator,typename OutputIterator>
+	class __copy_backward_dispatch
+	{
+	public:
+		OutputIterator operator()(InputIterator first, InputIterator last, OutputIterator result)
+		{
+			return __copy_backward(first, last, result);
+		}
+	};
+
+	template<typename T>
+	class __copy_backward_dispatch<T*,T*> 
+	{
+	public:
+		T* operator()(T* first,T* last, T* result)
+		{
+			typedef typename __type_traits<T>::has_trivial_assignment_operator t;
+			return __copy_backward_t(first, last, result, t());
+		}
+	};
+
+
+
+	//第三层
+	template<typename InputIterator,typename OutputIterator>
+	OutputIterator __copy_backward(InputIterator first, InputIterator last, OutputIterator result)
+	{
+		while (first != last)
+		{
+			*result = *first;
+			--first;
+			--result;
+		}
+		return result;
+	}
+
+
+	template<typename T>
+	T* __copy_backward_t(const T* first, const T* last, T* result,__true_type)
+	{
+		const ptrdiff_t d = last - first;
+		tstl_memmove(result - d, first, sizeof(T) * d);
+		return result - d;
+	}
+
+	template<typename T>
+	T* __copy_backward_t(const T* first, const T* last, T* result, __false_type)
+	{
+		return __copy_backward(first, last, result);
 	}
 }
 
