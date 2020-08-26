@@ -167,7 +167,7 @@ namespace TSTL {
 		static void* reallocate(void* p, size_t old_size, size_t new_size)
 		{
 			char* __read_p = (char*)p - (int)_S_extra;
-			assert(*(size_t*)__read_p == n);
+			assert(*(size_t*)__read_p == old_size);
 			char* result = (char*)_Alloc::reallocate(p, new_size + (int)_S_extra);
 			*(size_t*)result = new_size;
 			return result + (int)_S_extra;
@@ -197,11 +197,11 @@ namespace TSTL {
 
 		union _Obj {
 			union _Obj* _M_free_link_list;
-			char _M_client_data[i];
+			char _M_client_data[1];
 		};
 
 		//16个空闲链表
-		static _Obj* __STL_VOLATILE _S_free_list[_NFREELISTS];
+		static _Obj*  _S_free_list[_NFREELISTS];
 		//根据所给的大小，找到相应空闲链表的下标（从0开始算）
 		static size_t _S_freelist_index(size_t bytes)
 		{
@@ -222,7 +222,7 @@ namespace TSTL {
 		{
 		public:
 			_Lock() { __NODE_ALLOCATOR_LOCK; }
-			~log() { __NODE_ALLOCATOR_UNLOCK; }
+			~Lock() { __NODE_ALLOCATOR_UNLOCK; }
 		};
 
 	public:
@@ -324,13 +324,13 @@ namespace TSTL {
 				size_t __i;
 				_Obj* __p;
 				_Obj* __STL_VOLATILE* my_free_list;
-				for (__i = size; __i <= _MAX_BYTES; i += _ALIGN)
+				for (__i = size; __i <= _MAX_BYTES; __i += _ALIGN)
 				{
 					my_free_list = _S_free_list + _S_freelist_index(__i);
-					p = *my_free_list;
-					if (0 != p)
+					__p = *my_free_list;
+					if (0 != __p)
 					{
-						*my_free_list = p->_M_free_link_list;
+						*my_free_list = __p->_M_free_link_list;
 						_S_start_state = (char*)p;
 						_S_end_state = _S_start_state + __i;
 						return (_S_chunk_alloc(size, __nobjs));

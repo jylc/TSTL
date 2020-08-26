@@ -11,10 +11,10 @@ namespace TSTL
 {
 
 	template<typename T>
-	inline T* allocate(ptrdiff_t size, T*)
+	inline T* _allocate(ptrdiff_t size, T*)
 	{
 		set_new_handler(0);
-		T* tmp = (T*)(::operator new((size_t)size * sizeof T));
+		T* tmp = (T*)(::operator new((size_t)size * sizeof(T)));
 		if (tmp == 0)
 		{
 			std::cerr << "out of memory" << std::endl;
@@ -25,7 +25,7 @@ namespace TSTL
 	}
 
 	template<typename T>
-	inline void deallocate(T* buffer)
+	inline void _deallocate(T* buffer)
 	{
 		::operator delete(buffer);
 	}
@@ -44,12 +44,12 @@ namespace TSTL
 
 		pointer allocate(size_type size)
 		{
-			return ::allocate((difference_type)size, (pointer)0);
+			return _allocate((difference_type)size, (pointer)0);
 		}
 
 		void deallocate(pointer p)
 		{
-			::deallocate(p);
+			_deallocate(p);
 		}
 		pointer address(reference r)
 		{

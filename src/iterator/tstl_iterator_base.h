@@ -102,10 +102,10 @@ namespace TSTL
 	{
 	public:
 		typedef _Iterator::iterator_category iterator_category;		//迭代器的类型
-		typedef _iterator::value_type value_type;					//迭代器解除引用后的值的类型
-		typedef _iterator::difference_type difference_type;			//两个迭代器之间的距离
-		typedef _iterator::pointer pointer;							//指向被迭代类型的指针
-		typedef _iterator::reference reference;						//被迭代类型的引用
+		typedef _Iterator::value_type value_type;					//迭代器解除引用后的值的类型
+		typedef _Iterator::difference_type difference_type;			//两个迭代器之间的距离
+		typedef _Iterator::pointer pointer;							//指向被迭代类型的指针
+		typedef _Iterator::reference reference;						//被迭代类型的引用
 	};
 	// 针对原生指针(native pointer)而设计的 traits 偏特化版
 	template<typename _Tp>

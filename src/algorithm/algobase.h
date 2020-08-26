@@ -79,7 +79,7 @@ namespace TSTL
 	template<typename OutputIterator, typename size, typename _T>
 	OutputIterator fill(OutputIterator __first, size n, const _T& __value)
 	{
-		for (; n > 0; --n; ++__first)
+		for (; n > 0; --n, ++__first)
 		{
 			*__first = __value;
 		}
@@ -162,7 +162,7 @@ namespace TSTL
 	template<typename _T = void>
 	struct less :public binary_function<_T, _T, bool>
 	{
-		bool operator()(const _T& __left, const __T& __right)
+		bool operator()(const _T& __left, const _T& __right)
 		{
 			return (__left < __right);
 		}
@@ -200,27 +200,54 @@ namespace TSTL
 
 
 	//copy
-	//第一层
-	//泛化版
+
+	//第三层
+
+
+	template<typename RandomAccessIterator, typename OutputIterator, typename Distance>
+	OutputIterator __copy_d(RandomAccessIterator first, RandomAccessIterator last, OutputIterator result, Distance*)
+	{
+		for (Distance n = last - first; n > 0; --n, ++first, ++result)
+		{
+			*result = *first;
+		}
+	}
+
+	//原生指针为true_type
+	template<typename T>
+	inline T* __copy_t(const T* first, const T* last, T* result, __true_type)
+	{
+		tstl_memmove(result, first, size_t(last - first));
+		return result + (last - first);
+	}
+
+	//迭代器为false_type
+	template<typename T>
+	inline T* __copy_t(const T* first, const T* last, T* result, __false_type)
+	{
+		return __copy_d(first, last, result, (ptrdiff_t*)0);
+	}
+
 	template<typename InputIterator, typename OutputIterator>
-	inline OutputIterator copy(InputIterator first, InputIterator last, OutputIterator result)
+	OutputIterator __copy(InputIterator first, InputIterator last, OutputIterator result, TSTL::input_iterator_tag)
 	{
-		return copy_dispatch<InputIterator, OutputIterator>()(first, last, result);
+		while (first != last)
+		{
+			*result = *first;
+			++result;
+			++first;
+		}
+		return result;
 	}
 
-	//特化版(const char*,const char*)
-	inline char* copy(const char* first, const char* last, char* result)
+	template<typename RandomAccessIterator, typename OutputIterator>
+	OutputIterator __copy(RandomAccessIterator first, RandomAccessIterator last, OutputIterator result, TSTL::random_access_iterator_tag)
 	{
-		tstl_memmove(result, first, size_t(last - first));
-		return result + (last - first);
+		typedef typename iterator_traits<RandomAccessIterator>::distance distance;
+		return __copy_d(first, last, result, (distance*)0);
 	}
 
-	//特化版(const wchar_t*,const wchar_t*)
-	inline wchar_t* copy(const wchar_t* first, const wchar_t* last, wchar_t* result)
-	{
-		tstl_memmove(result, first, size_t(last - first));
-		return result + (last - first);
-	}
+	
 
 	//第二层
 	template<typename InputIterator, typename OutputIterator>
@@ -255,85 +282,35 @@ namespace TSTL
 		}
 	};
 
-	//第三层
+
+
+	//第一层
+	//泛化版
 	template<typename InputIterator, typename OutputIterator>
-	OutputIterator __copy(InputIterator first, InputIterator last, OutputIterator result, TSTL::input_iterator_tag)
+	inline OutputIterator copy(InputIterator first, InputIterator last, OutputIterator result)
 	{
-		while (first != last)
-		{
-			*result = *first;
-			++result;
-			++first;
-		}
-		return result;
+		return copy_dispatch<InputIterator, OutputIterator>()(first, last, result);
 	}
 
-	template<typename RandomAccessIterator, typename OutputIterator>
-	OutputIterator __copy(RandomAccessIterator first, RandomAccessIterator last, OutputIterator result, TSTL::random_access_iterator_tag)
-	{
-		typedef typename iterator_traits<RandomAccessIterator>::distance distance;
-		return __copy_d(first, last, result, distance*);
-	}
-
-	template<typename RandomAccessIterator, typename OutputIterator, typename Distance>
-	OutputIterator __copy_d(RandomAccessIterator first, RandomAccessIterator last, OutputIterator result, Distance*)
-	{
-		for (Distance n = last - first; n > 0; --n, ++first, ++result)
-		{
-			*result = *first;
-		}
-	}
-
-	//原生指针为true_type
-	template<typename T>
-	inline T* __copy_t(const T* first, const T* last, T* result, true_type)
+	//特化版(const char*,const char*)
+	inline char* copy(const char* first, const char* last, char* result)
 	{
 		tstl_memmove(result, first, size_t(last - first));
 		return result + (last - first);
 	}
 
-	//迭代器为false_type
-	template<typename T>
-	inline T* __copy_t(const T* first, const T* last, T* result, false_type)
+	//特化版(const wchar_t*,const wchar_t*)
+	inline wchar_t* copy(const wchar_t* first, const wchar_t* last, wchar_t* result)
 	{
-		return __copy_d(first, last, result, (ptrdiff_t*)0);
+		tstl_memmove(result, first, size_t(last - first));
+		return result + (last - first);
 	}
 
-
+	
 	//copy_backward:从最后一个元素复制到第一个元素
-	//第一层
-	template<typename InputIterator,typename OutputIterator>
-	OutputIterator copy_backward(InputIterator first, InputIterator last, OutputIterator result)
-	{
-		return __copy_backward_dispatch<InputIterator, OutputIterator>()(first, last, result);
-	}
-
-	//第二层
-	template<typename InputIterator,typename OutputIterator>
-	class __copy_backward_dispatch
-	{
-	public:
-		OutputIterator operator()(InputIterator first, InputIterator last, OutputIterator result)
-		{
-			return __copy_backward(first, last, result);
-		}
-	};
-
-	template<typename T>
-	class __copy_backward_dispatch<T*,T*> 
-	{
-	public:
-		T* operator()(T* first,T* last, T* result)
-		{
-			typedef typename __type_traits<T>::has_trivial_assignment_operator t;
-			return __copy_backward_t(first, last, result, t());
-		}
-	};
-
-
-
+	
 	//第三层
-	template<typename InputIterator,typename OutputIterator>
+	template<typename InputIterator, typename OutputIterator>
 	OutputIterator __copy_backward(InputIterator first, InputIterator last, OutputIterator result)
 	{
 		while (first != last)
@@ -347,7 +324,7 @@ namespace TSTL
 
 
 	template<typename T>
-	T* __copy_backward_t(const T* first, const T* last, T* result,__true_type)
+	T* __copy_backward_t(const T* first, const T* last, T* result, __true_type)
 	{
 		const ptrdiff_t d = last - first;
 		tstl_memmove(result - d, first, sizeof(T) * d);
@@ -359,6 +336,41 @@ namespace TSTL
 	{
 		return __copy_backward(first, last, result);
 	}
+
+	//第二层
+	template<typename InputIterator, typename OutputIterator>
+	class __copy_backward_dispatch
+	{
+	public:
+		OutputIterator operator()(InputIterator first, InputIterator last, OutputIterator result)
+		{
+			return __copy_backward(first, last, result);
+		}
+	};
+
+	template<typename T>
+	class __copy_backward_dispatch<T*, T*>
+	{
+	public:
+		T* operator()(T* first, T* last, T* result)
+		{
+			typedef typename __type_traits<T>::has_trivial_assignment_operator t;
+			return __copy_backward_t(first, last, result, t());
+		}
+	};
+
+	//第一层
+	template<typename InputIterator,typename OutputIterator>
+	OutputIterator copy_backward(InputIterator first, InputIterator last, OutputIterator result)
+	{
+		return __copy_backward_dispatch<InputIterator, OutputIterator>()(first, last, result);
+	}
+
+	
+
+
+
+	
 }
 
 

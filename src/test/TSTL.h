@@ -8,6 +8,7 @@
 #include "defalloc.h"
 #include "tstl_alloc.h"
 #include "tstl_construct.h"
+#include "sequence container/deque/deque.h"
 
 // TODO: 在此处引用程序需要的其他标头。
 
