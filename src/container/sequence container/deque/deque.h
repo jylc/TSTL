@@ -8,7 +8,7 @@
 #include "algobase.h"
 namespace TSTL
 {
-	template<typename T, typename Alloc = alloc, size_t BufSiz = 0>
+	template<typename T, typename Alloc = alloc<T>, size_t BufSiz = 0>
 	class deque
 	{
 	public:

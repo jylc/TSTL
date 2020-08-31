@@ -1,8 +1,7 @@
 #pragma once
 #ifndef _STACK_H_
 #define _STACK_H_
-#include "../deque/deque.h"
-
+#include "deque.h"
 namespace TSTL
 {
 	template<typename T, typename Sequence = deque<T>>

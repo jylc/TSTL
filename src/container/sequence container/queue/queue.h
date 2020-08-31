@@ -1,7 +1,7 @@
 #pragma once
 #ifndef _QUEUE_H_
 #define _QUEUE_H_
-#include "../deque/deque.h"
+#include "deque.h"
 namespace TSTL 
 {
 	template<typename T,typename Sequence=deque<T>>
